@@ -7,6 +7,8 @@ require('dotenv').config();
 const studentRoutes = require('./routes/studentRoutes');
 const allStudents = require('./routes/allstudentRoute');
 const loginRoutes = require('./routes/loginRoutes');
+const currentRecordsRoutes = require('./routes/currentRecords');
+const feeDetailRoutes = require('./routes/feeDetailRoutes'); // Add this line
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +32,8 @@ mongoose.connect(process.env.DB_URL, { useNewUrlParser: true, useUnifiedTopology
 app.use('/students', studentRoutes);
 app.use('/allStudents', allStudents);
 app.use('/login', loginRoutes);
+app.use('/currentRecords', currentRecordsRoutes);
+app.use('/fees', feeDetailRoutes); // Add this line
 
 // Error handling middleware
 app.use((err, req, res, next) => {

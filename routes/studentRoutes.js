@@ -1,16 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const Student = require('../Models/studentModel');
+const ALLStudent = require('../Models/allstudents');
 
 // Route to create a new student
 router.post('/', async (req, res) => {
     try {
-        const { rollNumber, name, mobileNumber, dateOfAdmission, slots, seatNumber } = req.body;
+        const { rollNumber, name, gender, dob, aadharNo, contact, residentialNo, Fname, FOccupation, permanentAddress, postalAddress, academic, prepareFor, dateOfAdmission, slots, seatNumber } = req.body;
 
         // Check if rollNumber already exists
         const existingRollNumber = await Student.findOne({ rollNumber });
         if (existingRollNumber) {
             return res.status(400).json({ error: 'Roll number already exists' });
+        }
+        
+        // Check if aadharNo already exists
+        const existingAadhar = await Student.findOne({ aadharNo });
+        if (existingAadhar) {
+            return res.status(400).json({ error: 'Aadhar number already exists' });
         }
 
         // Check if seatNumber already exists
@@ -26,14 +33,44 @@ router.post('/', async (req, res) => {
         const newStudent = new Student({
             rollNumber,
             name,
-            mobileNumber,
+            gender,
+            dob,
+            aadharNo,
+            contact,
+            residentialNo,
+            Fname,
+            FOccupation,
+            permanentAddress,
+            postalAddress,
+            academic,
+            prepareFor,
+            dateOfAdmission,
+            slots: slotsArray,
+            seatNumber
+        });
+        const allStudent = new ALLStudent({
+            rollNumber,
+            name,
+            gender,
+            dob,
+            aadharNo,
+            contact,
+            residentialNo,
+            Fname,
+            FOccupation,
+            permanentAddress,
+            postalAddress,
+            academic,
+            prepareFor,
             dateOfAdmission,
             slots: slotsArray,
             seatNumber
         });
 
+
         // Save the new student to the database
         await newStudent.save();
+        await allStudent.save();
 
         res.status(201).json({ message: 'Student created successfully' });
     } catch (error) {
@@ -41,13 +78,16 @@ router.post('/', async (req, res) => {
         res.status(500).json({ error: 'An error occurred while processing your request' });
     }
 });
-// Route to fetch student data based on roll number
-// Route to fetch student data based on roll number
+
+// Route to get a student by roll number
 router.get('/:rollNumber', async (req, res) => {
     try {
         const rollNumber = req.params.rollNumber;
+        
+        // Find the student by roll number
         const student = await Student.findOne({ rollNumber });
 
+        // If student not found, return 404 error
         if (!student) {
             return res.status(404).json({ error: 'Student not found' });
         }
@@ -65,6 +105,7 @@ router.get('/:rollNumber', async (req, res) => {
             slots: formattedSlots
         };
 
+        // Send the formatted student object as JSON response
         res.json(formattedStudent);
     } catch (error) {
         console.error("Error:", error);
@@ -72,14 +113,11 @@ router.get('/:rollNumber', async (req, res) => {
     }
 });
 
-
-
-// Route to update student data based on roll number
 // Route to update student data based on roll number
 router.put('/:rollNumber', async (req, res) => {
     try {
         const rollNumber = req.params.rollNumber;
-        const { name, mobileNumber, dateOfAdmission, slots, seatNumber } = req.body;
+        const { name, gender, dob, aadharNo, contact, residentialNo, Fname, FOccupation, permanentAddress, postalAddress, academic, prepareFor, dateOfAdmission, slots, seatNumber } = req.body;
 
         // Find the student by roll number
         let student = await Student.findOne({ rollNumber });
@@ -90,9 +128,18 @@ router.put('/:rollNumber', async (req, res) => {
 
         // Update student data
         student.name = name;
-        student.mobileNumber = mobileNumber;
+        student.gender = gender;
+        student.dob = dob;
+        student.aadharNo = aadharNo;
+        student.contact = contact;
+        student.residentialNo = residentialNo;
+        student.Fname = Fname;
+        student.FOccupation = FOccupation;
+        student.permanentAddress = permanentAddress;
+        student.postalAddress = postalAddress;
+        student.academic = academic;
+        student.prepareFor = prepareFor;
         student.dateOfAdmission = dateOfAdmission;
-        // Convert 'slots' from string to array if it's not already an array
         student.slots = Array.isArray(slots) ? slots : [slots]; // Ensure slots is an array
         student.seatNumber = seatNumber;
 
@@ -104,6 +151,8 @@ router.put('/:rollNumber', async (req, res) => {
         res.status(500).json({ error: 'An error occurred while processing your request' });
     }
 });
+
+// Route to delete a student by roll number
 router.delete('/:rollNumber', async (req, res) => {
     try {
         const rollNumber = req.params.rollNumber;
@@ -122,6 +171,8 @@ router.delete('/:rollNumber', async (req, res) => {
         res.status(500).json({ error: 'An error occurred while processing your request' });
     }
 });
+
+// Route to get all students
 router.get('/students', async (req, res) => {
     try {
         const students = await Student.find();
