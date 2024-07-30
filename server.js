@@ -9,6 +9,7 @@ const allStudents = require('./routes/allstudentRoute');
 const loginRoutes = require('./routes/loginRoutes');
 const currentRecordsRoutes = require('./routes/currentRecords');
 const feeDetailRoutes = require('./routes/feeDetailRoutes'); // Add this line
+const feedataRoutes = require('./routes/fees-student-data'); // Add this line
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,7 @@ app.use('/allStudents', allStudents);
 app.use('/login', loginRoutes);
 app.use('/currentRecords', currentRecordsRoutes);
 app.use('/fees', feeDetailRoutes); // Add this line
+app.use('/fees-student-data', feedataRoutes); // Add this line
 
 // Error handling middleware
 app.use((err, req, res, next) => {

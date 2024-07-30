@@ -28,12 +28,6 @@ const studentSchema = new mongoose.Schema({
     contact: {
         type: String,
         required: true,
-        validate: {
-            validator: function (v) {
-                return /^[0-9]{10}$/.test(v);
-            },
-            message: props => `${props.value} is not a valid contact number!`
-        }
     },
     residentialNo: {
         type: String,
@@ -67,15 +61,6 @@ const studentSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
-    slots: [{
-        type: String,
-        enum: ['slot1', 'slot2', 'slot3'],
-        required: true
-    }],
-    seatNumber: {
-        type: String,
-        unique: true
-    }
 });
 
 const ALLStudent = mongoose.model('ALLStudent', studentSchema);

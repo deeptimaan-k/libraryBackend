@@ -1,102 +1,64 @@
 const express = require('express');
 const router = express.Router();
-const Fee = require('../Models/feeDetailModel');
-const Student = require('../Models/studentModel');
-
+const Fee = require('../Models/feeDetailModel'); // Import the Fee model
+const Student = require('../Models/studentModel'); // Import the Student model
 // Route to submit fee details
 router.post('/:studentId', async (req, res) => {
-    const studentId = req.params.studentId;
-    const { year, month, amount, paymentMethod, receiptNumber } = req.body;
+    const { studentId } = req.params;
+    const { currentDate, endDate, dueDate, month, amount } = req.body;
 
     try {
+        // Check if the student exists
         const student = await Student.findById(studentId);
         if (!student) {
             return res.status(404).json({ error: 'Student not found' });
         }
 
-        const newFee = new Fee({
-            student: studentId,
-            year,
-            month,
-            amount,
-            paymentMethod,
-            receiptNumber
-        });
+        // Find or create a Fee document for the student
+        let feeDoc = await Fee.findOne({ student: studentId });
 
-        await newFee.save();
-        return res.status(201).json({ message: 'New fee details created successfully', fee: newFee });
+        if (!feeDoc) {
+            feeDoc = new Fee({
+                student: studentId,
+                fees_record: {}
+            });
+        }
 
+        // Convert currentDate to YYYY-MM-DD format
+        const dateKey = new Date(currentDate).toISOString().split('T')[0]; // Use YYYY-MM-DD format
+
+        // Update the fees_record object
+        feeDoc.fees_record.set(dateKey, { endDate, dueDate, month, amount });
+
+        // Save the document
+        await feeDoc.save();
+
+        // Respond with success message and the updated fee document
+        res.status(201).json({ message: 'Fee details added/updated successfully', fee: feeDoc });
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Server error' });
+        console.error('Error submitting fee details:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-// Route to update fee details
-router.put('/:studentId/:feeId', async (req, res) => {
-    const studentId = req.params.studentId;
-    const feeId = req.params.feeId;
-    const { year, month, amount, paymentMethod, receiptNumber } = req.body;
-
-    try {
-        const student = await Student.findById(studentId);
-        if (!student) {
-            return res.status(404).json({ error: 'Student not found' });
-        }
-
-        const updatedFee = await Fee.findByIdAndUpdate(
-            feeId,
-            { year, month, amount, paymentMethod, receiptNumber },
-            { new: true }
-        );
-
-        if (!updatedFee) {
-            return res.status(404).json({ error: 'Fee record not found' });
-        }
-
-        return res.status(200).json({ message: 'Fee details updated successfully', fee: updatedFee });
-
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// Route to fetch fee details for a student
+// Route to fetch fee details
 router.get('/:studentId', async (req, res) => {
-    const studentId = req.params.studentId;
-
     try {
-        const fees = await Fee.find({ student: studentId }).sort({ year: -1, month: 1 });
-        return res.status(200).json(fees);
+        const { studentId } = req.params;
+        const fee = await Fee.findOne({ student: studentId }).populate('student');
+        
+        if (!fee) {
+            return res.status(404).json(0);
+        }
 
+        res.status(200).json(fee);
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Server error' });
+        console.error('Server Error:', error);
+        res.status(500).json({ message: 'An error occurred while fetching fee records.' });
     }
 });
-router.get('/upcoming/:studentId', async (req, res) => {
-    const studentId = req.params.studentId;
-    const currentYear = new Date().getFullYear();
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const currentMonthIndex = new Date().getMonth(); // Months are 0-indexed
-  
-    try {
-      const upcomingFees = await Fee.find({
-        student: studentId,
-        $or: [
-          { year: { $gt: currentYear } }, // Future years
-          { year: currentYear, month: { $in: monthNames.slice(currentMonthIndex) } } // Current year and future months
-        ]
-      }).sort({ year: 1, month: 1 });
-  
-      return res.status(200).json(upcomingFees);
-  
-    } catch (error) {
-      console.error('Error fetching upcoming fees:', error);
-      return res.status(500).json({ error: 'Server error' });
-    }
-  });
-  
-  
+
+
+
+
 module.exports = router;

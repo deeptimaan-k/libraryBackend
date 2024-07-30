@@ -1,33 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const Student = require('../Models/studentModel');
-const ALLStudent = require('../Models/allstudents');
+const ALLStudent = require('../Models/allstudents'); // Assuming this is a separate collection for all students
+const Fees = require('../Models/feeDetailModel'); // Assuming this is a separate collection for all students
 
 // Route to create a new student
 router.post('/', async (req, res) => {
     try {
-        const { rollNumber, name, gender, dob, aadharNo, contact, residentialNo, Fname, FOccupation, permanentAddress, postalAddress, academic, prepareFor, dateOfAdmission, slots, seatNumber } = req.body;
+        const { rollNumber, name, gender, dob, aadharNo, contact, residentialNo, Fname, FOccupation, permanentAddress, postalAddress, academic, prepareFor, dateOfAdmission, seats } = req.body;
 
-        // Check if rollNumber already exists
+        // Check if rollNumber or aadharNo already exists
         const existingRollNumber = await Student.findOne({ rollNumber });
         if (existingRollNumber) {
             return res.status(400).json({ error: 'Roll number already exists' });
         }
-        
-        // Check if aadharNo already exists
         const existingAadhar = await Student.findOne({ aadharNo });
         if (existingAadhar) {
             return res.status(400).json({ error: 'Aadhar number already exists' });
         }
-
-        // Check if seatNumber already exists
-        const existingSeatNumber = await Student.findOne({ seatNumber });
-        if (existingSeatNumber) {
-            return res.status(400).json({ error: 'Seat number already exists' });
-        }
-
-        // Convert 'slots' from string to array if it's not already an array
-        const slotsArray = Array.isArray(slots) ? slots : [slots];
 
         // Create a new student object
         const newStudent = new Student({
@@ -45,36 +35,16 @@ router.post('/', async (req, res) => {
             academic,
             prepareFor,
             dateOfAdmission,
-            slots: slotsArray,
-            seatNumber
+            seats: new Map(Object.entries(seats)),
+            isActive:true, // Convert seats to Map format
         });
-        const allStudent = new ALLStudent({
-            rollNumber,
-            name,
-            gender,
-            dob,
-            aadharNo,
-            contact,
-            residentialNo,
-            Fname,
-            FOccupation,
-            permanentAddress,
-            postalAddress,
-            academic,
-            prepareFor,
-            dateOfAdmission,
-            slots: slotsArray,
-            seatNumber
-        });
-
 
         // Save the new student to the database
         await newStudent.save();
-        await allStudent.save();
 
         res.status(201).json({ message: 'Student created successfully' });
     } catch (error) {
-        console.error("Error:", error); // Log the error
+        console.error("Error:", error);
         res.status(500).json({ error: 'An error occurred while processing your request' });
     }
 });
@@ -83,7 +53,7 @@ router.post('/', async (req, res) => {
 router.get('/:rollNumber', async (req, res) => {
     try {
         const rollNumber = req.params.rollNumber;
-        
+
         // Find the student by roll number
         const student = await Student.findOne({ rollNumber });
 
@@ -92,20 +62,13 @@ router.get('/:rollNumber', async (req, res) => {
             return res.status(404).json({ error: 'Student not found' });
         }
 
-        // Format the dateOfAdmission before sending the response
-        const formattedDate = student.dateOfAdmission.toISOString().substr(0, 10);
-
-        // Convert slots to an array if it's not already
-        const formattedSlots = Array.isArray(student.slots) ? student.slots : [student.slots];
-
-        // Create a new object with the formatted date and slots
+        // Convert seats Map to an array of slot values
         const formattedStudent = {
-            ...student.toObject(), // Convert Mongoose document to plain JavaScript object
-            dateOfAdmission: formattedDate,
-            slots: formattedSlots
+            ...student.toObject(),
+            dateOfAdmission: student.dateOfAdmission.toISOString().substr(0, 10),
+            slots: Array.from(student.seats.entries()).map(([seat, slot]) => ({ seat, slot })) // Convert Map to Array
         };
 
-        // Send the formatted student object as JSON response
         res.json(formattedStudent);
     } catch (error) {
         console.error("Error:", error);
@@ -113,35 +76,25 @@ router.get('/:rollNumber', async (req, res) => {
     }
 });
 
+
 // Route to update student data based on roll number
-router.put('/:rollNumber', async (req, res) => {
+// Route to partially update student data based on roll number
+router.patch('/:rollNumber', async (req, res) => {
     try {
         const rollNumber = req.params.rollNumber;
-        const { name, gender, dob, aadharNo, contact, residentialNo, Fname, FOccupation, permanentAddress, postalAddress, academic, prepareFor, dateOfAdmission, slots, seatNumber } = req.body;
+        const updateFields = req.body;
 
         // Find the student by roll number
-        let student = await Student.findOne({ rollNumber });
+        const student = await Student.findOne({ rollNumber });
 
         if (!student) {
             return res.status(404).json({ error: 'Student not found' });
         }
 
-        // Update student data
-        student.name = name;
-        student.gender = gender;
-        student.dob = dob;
-        student.aadharNo = aadharNo;
-        student.contact = contact;
-        student.residentialNo = residentialNo;
-        student.Fname = Fname;
-        student.FOccupation = FOccupation;
-        student.permanentAddress = permanentAddress;
-        student.postalAddress = postalAddress;
-        student.academic = academic;
-        student.prepareFor = prepareFor;
-        student.dateOfAdmission = dateOfAdmission;
-        student.slots = Array.isArray(slots) ? slots : [slots]; // Ensure slots is an array
-        student.seatNumber = seatNumber;
+        // Update student data with only provided fields
+        Object.keys(updateFields).forEach(field => {
+            student[field] = updateFields[field];
+        });
 
         // Save the updated student
         await student.save();
@@ -152,35 +105,104 @@ router.put('/:rollNumber', async (req, res) => {
     }
 });
 
-// Route to delete a student by roll number
-router.delete('/:rollNumber', async (req, res) => {
+
+// Route to update seat booking for a student by roll number
+router.put('/seatbooking/:rollNumber', async (req, res) => {
     try {
         const rollNumber = req.params.rollNumber;
-        
-        // Find the student by roll number and delete it
-        const deletedStudent = await Student.findOneAndDelete({ rollNumber });
+        const { seats } = req.body;
 
-        if (!deletedStudent) {
+        // Find the student by roll number
+        const student = await Student.findOne({ rollNumber });
+
+        if (!student) {
             return res.status(404).json({ error: 'Student not found' });
         }
 
-        // Send a 204 No Content status code with an empty response body
-        res.status(204).end();
+        // Update seats data
+        student.seats = seats; // Assign array directly
+
+        // Save the updated student
+        await student.save();
+        res.json({ message: 'Student seat booking updated successfully' });
     } catch (error) {
         console.error("Error:", error);
         res.status(500).json({ error: 'An error occurred while processing your request' });
     }
 });
 
+
+// Route to delete a student by roll number
+router.patch('/:rollNumber/deactivate', async (req, res) => {
+    const { rollNumber } = req.params;
+    const { isActive, seats } = req.body;
+
+    if (isActive !== false) {
+        return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    try {
+        const student = await Student.findOneAndUpdate(
+            { rollNumber: rollNumber },
+            { 
+                isActive: false,
+                seats: seats || [] // Update seats to an empty array if not provided
+            },
+            { new: true } // Return the updated document
+        );
+
+        if (!student) {
+            return res.status(404).json({ error: 'Student not found' });
+        }
+
+        res.json({ message: 'Student record deactivated and seats cleared successfully', student });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.patch('/:rollNumber/activate', async (req, res) => {
+    const { rollNumber } = req.params;
+    const { isActive, seats } = req.body;
+
+    if (isActive !== true) {
+        return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    try {
+        const student = await Student.findOneAndUpdate(
+            { rollNumber: rollNumber },
+            { 
+                isActive: true,
+                seats: seats || [] // Update seats field if provided
+            },
+            { new: true } // Return the updated document
+        );
+
+        if (!student) {
+            return res.status(404).json({ error: 'Student not found' });
+        }
+
+        res.json({ message: 'Student record activated successfully', student });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+
+
 // Route to get all students
 router.get('/students', async (req, res) => {
     try {
         const students = await Student.find();
 
-        // Format the dateOfAdmission before sending the response
+        // Format the dateOfAdmission and convert Map to Object for each student
         const formattedStudents = students.map(student => ({
             ...student.toObject(),
-            dateOfAdmission: student.dateOfAdmission.toISOString().substr(0, 10)
+            dateOfAdmission: student.dateOfAdmission.toISOString().substr(0, 10),
+            seats: Object.fromEntries(student.seats) // Convert Map to Object for response
         }));
 
         res.json(formattedStudents);

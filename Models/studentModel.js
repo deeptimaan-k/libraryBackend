@@ -27,17 +27,11 @@ const studentSchema = new mongoose.Schema({
     },
     contact: {
         type: String,
-        required: true,
-        validate: {
-            validator: function (v) {
-                return /^[0-9]{10}$/.test(v);
-            },
-            message: props => `${props.value} is not a valid contact number!`
-        }
+        required: true
     },
     residentialNo: {
         type: String,
-        required: true,
+        required: true
     },
     Fname: {
         type: String,
@@ -67,17 +61,21 @@ const studentSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
-    slots: [{
-        type: String,
-        enum: ['slot1', 'slot2', 'slot3'],
-        required: true
+    seats: [{
+        seatNumber: {
+            type: Number,
+            _id: false // Disable _id for the seatNumber field
+        },
+        slot: {
+            type: String,
+            _id: false // Disable _id for the slot field
+        }
     }],
-    seatNumber: {
-        type: String,
-        unique: true
+    isActive: {
+        type: Boolean,
+        default: true // Default value for isActive field
     }
 });
 
 const Student = mongoose.model('Student', studentSchema);
-
 module.exports = Student;
